@@ -1,0 +1,13 @@
+/*
+Theme Name: Twenty Seventeen Child
+Template: twentyseventeen
+Author: Dax Liniere
+Description: Correct &lt;100% width for text editing fields
+Version: 1.0.1635640503
+Updated: 2021-10-31 00:35:03
+
+*/
+
+body {
+    max-width: 100%;
+}
