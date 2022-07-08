@@ -199,7 +199,7 @@ class Sliced_Reports {
 	 *
 	 * @since   2.0.0
 	 */
-	public function get_items_for_time_period( $type = 'invoice', $time = 'year', $period_ago = 0 ) {
+	public function get_items_for_time_period( $type = 'invoice', $time = 'year', $period_ago = 0, $statuses = '' ) {
 
 		switch ( $time ) {
 			case 'year':
@@ -255,6 +255,19 @@ class Sliced_Reports {
 		);
 		
 		if ( $type === 'invoice' ) {
+			if ( $statuses ) {
+				$args['tax_query'] = array(
+					'relation' => 'AND',
+					array(
+						'taxonomy' => 'invoice_status',
+						'field'    => 'slug',
+						'terms'    => $statuses,
+						'operator' => 'IN',
+					),
+				);
+
+			} else {
+				
 			$args['tax_query'] = array(
 				'relation' => 'AND',
 				array(
@@ -264,9 +277,23 @@ class Sliced_Reports {
 					'operator' => 'NOT IN',
 				),
 			);
+			}
 		}
 		
 		if ( $type === 'quote' ) {
+			if ( $statuses ) {
+				$args['tax_query'] = array(
+					'relation' => 'AND',
+					array(
+						'taxonomy' => 'quote_status',
+						'field'    => 'slug',
+						'terms'    => $statuses,
+						'operator' => 'IN',
+					),
+				);
+
+			} else {
+						
 			$args['tax_query'] = array(
 				'relation' => 'AND',
 				array(
@@ -276,6 +303,7 @@ class Sliced_Reports {
 					'operator' => 'NOT IN',
 				),
 			);
+			}
 		}
 
 		$the_query = new WP_Query( apply_filters( 'sliced_reports_query', $args ) );
@@ -297,9 +325,10 @@ class Sliced_Reports {
 
 
 	/**
-	 * Display the invoice items.
-	 *
-	 * @since   2.0.0
+	 * Display the invoice and unpaid invoice items.
+	 * (Dax tweak)
+	 * @since   3.8.16
+
 	 */
 	public function invoice_report() {
 
@@ -310,6 +339,16 @@ class Sliced_Reports {
 		$last_month = $this->do_the_math( $this->get_items_for_time_period( $type, 'month', -1 ) );
 		$this_week  = $this->do_the_math( $this->get_items_for_time_period( $type, 'week', 0 ) );
 		$last_week  = $this->do_the_math( $this->get_items_for_time_period( $type, 'week', -1 ) );
+		
+//I hard-coded the $type var because it was breaking the Quotes And Invoices bar graph (Dax)
+		
+		$unpaid_this_year  = $this->do_the_math( $this->get_items_for_time_period( 'invoice', 'year', 0, array( 'unpaid', 'partially-paid', 'overdue' ) ) );
+		$unpaid_last_year  = $this->do_the_math( $this->get_items_for_time_period( 'invoice', 'year', -1, array( 'unpaid', 'partially-paid', 'overdue' ) ) );
+		$unpaid_this_month = $this->do_the_math( $this->get_items_for_time_period( 'invoice', 'month', 0, array( 'unpaid', 'partially-paid', 'overdue' ) ) );
+		$unpaid_last_month = $this->do_the_math( $this->get_items_for_time_period( 'invoice', 'month', -1, array( 'unpaid', 'partially-paid', 'overdue' ) ) );
+		$unpaid_this_week  = $this->do_the_math( $this->get_items_for_time_period( 'invoice', 'week', 0, array( 'unpaid', 'partially-paid', 'overdue' ) ) );
+		$unpaid_last_week  = $this->do_the_math( $this->get_items_for_time_period( 'invoice', 'week', -1, array( 'unpaid', 'partially-paid', 'overdue' ) ) );
+
 
 	?>
 		<div class="sliced-dashboard">
@@ -327,8 +366,25 @@ class Sliced_Reports {
 				<li class="number"><span><?php _e( 'Last Year:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $last_year['total'] ) ?></li>
 				<li class="number"><span><?php _e( 'Last Month:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $last_month['total'] ) ?></li>
 				<li class="number"><span><?php _e( 'Last Week:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $last_week['total'] ) ?></li>
+			</ul>
+			
+			<span class="description"><?php _e( '<strong>Unpaid, Partially Paid and Overdue invoices:</strong>', 'sliced-invoices' ) ?></span>
+			<ul class="invoices">
+				<li class="label">
+					<?php sprintf( __( 'Total %s', 'sliced-invoices' ), sliced_get_invoice_label_plural() ) ?>
+				</li>
+				<li class="number"><span><?php _e( 'Year to Date:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $unpaid_this_year['total'] ) ?></li>
+				<li class="number"><span><?php _e( 'This Month:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $unpaid_this_month['total'] ) ?></li>
+				<li class="number"><span><?php _e( 'This Week:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $unpaid_this_week['total'] ) ?></li>
 
 			</ul>
+			<ul class="invoices">
+				<li class="number"><span><?php _e( 'Last Year:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $unpaid_last_year['total'] ) ?></li>
+				<li class="number"><span><?php _e( 'Last Month:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $unpaid_last_month['total'] ) ?></li>
+				<li class="number"><span><?php _e( 'Last Week:', 'sliced-invoices' ) ?></span> <?php echo esc_html( $unpaid_last_week['total'] ) ?></li>
+
+			</ul>
+			
 		</div>
 
 
@@ -454,7 +510,9 @@ class Sliced_Reports {
 		$colors = $this->get_reporting_colors();
 		
 		foreach( $statuses as $status ) {
-			$data[] = esc_html( $status->count );
+		     // $data[] = esc_html( $status->count ); // by count
+			$data[] = array_sum( $this->get_items_for_time_period( $type, 'year', 0, $status ) ); // by amount
+
 			$background_colors[] = '"'.$colors[$status->slug].'"';
 			$labels[] = '"'.esc_attr( $status->name ).'"';
 		}
@@ -553,8 +611,8 @@ class Sliced_Reports {
 			$count--;
 		}
 
-		$quotes = array_reverse( array_slice($quote_total, 0, 6) );
-		$invoices = array_reverse( array_slice($invoice_total, 0, 6) );
+		$quotes = array_reverse( array_slice($quote_total, 0, 12) );
+		$invoices = array_reverse( array_slice($invoice_total, 0, 12) );
 
 		?>
 		<ul class="bar-legend">
@@ -574,15 +632,15 @@ class Sliced_Reports {
 								echo '"' . $month . '",';
 							} ?>],
 				datasets: [
-					{
-						label: "Quotes",
-						backgroundColor : "rgba(42, 61, 80, 0.7)",
-						borderColor : "rgba(42, 61, 80, 1)",
-						data : [<?php
-									foreach( $quotes as $month => $amount ) {
-										echo (int)$amount . ',';
-									} ?>]
-					},
+//					{
+//						label: "Quotes",
+//						backgroundColor : "rgba(42, 61, 80, 0.7)",
+//						borderColor : "rgba(42, 61, 80, 1)",
+//						data : [<?php
+//									foreach( $quotes as $month => $amount ) {
+//										echo (int)$amount . ',';
+//									} ?>]
+//					},
 					{
 						label: "Invoices",
 						backgroundColor : "rgba(23, 158, 200, 0.7)",
