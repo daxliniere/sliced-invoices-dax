@@ -291,6 +291,10 @@
 		workOutTotals();
 	});
 	
+	$(document).on('click', '.cmb-remove-group-row-button, .cmb-shift-rows', function () {
+		workOutTotals();
+	});
+	
 	// add pre-defined items from select into the empty line item fields
 	$( document ).on( 'change', 'select.pre_defined_products', function(){
 		
